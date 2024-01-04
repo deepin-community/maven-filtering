@@ -26,12 +26,12 @@ import org.apache.maven.execution.MavenExecutionResult;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.settings.Settings;
 import org.codehaus.plexus.PlexusContainer;
-import org.sonatype.aether.RepositorySystemSession;
+import org.eclipse.aether.RepositorySystemSession;
 
 /**
  * @author Olivier Lamy
  * @since 1.0-beta-1
- * @version $Id: StubMavenSession.java 1744899 2016-05-21 10:50:39Z khmarbaise $
+ *
  */
 public class StubMavenSession
     extends MavenSession
@@ -80,16 +80,19 @@ public class StubMavenSession
         }
     }
 
+    @Override
     public Settings getSettings()
     {
         return settings;
     }
 
+    @Override
     public Properties getSystemProperties()
     {
         return this.systemProperties;
     }
 
+    @Override
     public Properties getUserProperties()
     {
         return this.userProperties;

@@ -20,35 +20,34 @@ package org.apache.maven.shared.filtering;
  */
 
 import java.io.File;
-import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.maven.model.Resource;
-import org.apache.maven.shared.utils.io.FileUtils;
-import org.apache.maven.shared.utils.io.IOUtil;
-import org.codehaus.plexus.PlexusTestCase;
 
 /**
  * @author Olivier Lamy
  */
 public class EscapeStringTest
-    extends PlexusTestCase
+    extends TestSupport
 {
 
     File outputDirectory = new File( getBasedir(), "target/EscapeStringTest" );
 
     File unitDirectory = new File( getBasedir(), "src/test/units-files/escape-remove-char" );
 
+    @Override
     protected void setUp()
         throws Exception
     {
         super.setUp();
         if ( outputDirectory.exists() )
         {
-            FileUtils.forceDelete( outputDirectory );
+            FileUtils.deleteDirectory( outputDirectory );
         }
         outputDirectory.mkdirs();
     }
@@ -70,12 +69,12 @@ public class EscapeStringTest
         MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitDirectory.getPath() );
         resource.setFiltering( true );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
 
         List<String> nonFilteredFileExtensions = Collections.singletonList( "gif" );
 
@@ -87,19 +86,10 @@ public class EscapeStringTest
         mavenResourcesExecution.setEscapeString( "!" );
 
         mavenResourcesFiltering.filterResources( mavenResourcesExecution );
-
-        FileInputStream in = null;
-        try
-        {
-            String content = IOUtil.toString( new FileInputStream( new File( outputDirectory, "content.xml" ) ) );
-
-            assertTrue( content.contains( "<broken-tag>Content with replacement: I am the replacement !</broken-tag>" ) );
-            assertTrue( content.contains( "<broken-tag>Content with escaped replacement: Do not ${replaceThis} !</broken-tag>" ) );
-        }
-        finally
-        {
-            IOUtil.close( in );
-        }
-
+        
+        File file = new File( outputDirectory, "content.xml" );
+        String content = FileUtils.readFileToString( file, StandardCharsets.UTF_8 );
+        assertTrue( content.contains( "<broken-tag>Content with replacement: I am the replacement !</broken-tag>" ) );
+        assertTrue( content.contains( "<broken-tag>Content with escaped replacement: Do not ${replaceThis} !</broken-tag>" ) );
     }
 }
