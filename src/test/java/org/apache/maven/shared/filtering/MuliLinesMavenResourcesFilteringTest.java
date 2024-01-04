@@ -26,28 +26,27 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.maven.model.Resource;
-import org.apache.maven.shared.utils.io.FileUtils;
-import org.apache.maven.shared.utils.io.IOUtil;
-import org.codehaus.plexus.PlexusTestCase;
 
 /**
  * @author Olivier Lamy
- * @version $Id: MuliLinesMavenResourcesFilteringTest.java 1713023 2015-11-06 20:28:40Z khmarbaise $
+ *
  */
 public class MuliLinesMavenResourcesFilteringTest
-    extends PlexusTestCase
+    extends TestSupport
 {
 
     File outputDirectory = new File( getBasedir(), "target/MuliLinesMavenResourcesFilteringTest" );
 
+    @Override
     protected void setUp()
         throws Exception
     {
         super.setUp();
         if ( outputDirectory.exists() )
         {
-            FileUtils.forceDelete( outputDirectory );
+            FileUtils.deleteDirectory( outputDirectory );
         }
         outputDirectory.mkdirs();
     }
@@ -73,12 +72,12 @@ public class MuliLinesMavenResourcesFilteringTest
         String unitFilesDir = getBasedir() + "/src/test/units-files/MRESOURCES-104";
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir() + "/src/test/units-files/MRESOURCES-104/test.properties" );
 
         List<String> nonFilteredFileExtensions = Collections.singletonList( "gif" );
@@ -91,15 +90,10 @@ public class MuliLinesMavenResourcesFilteringTest
         mavenResourcesFiltering.filterResources( mavenResourcesExecution );
 
         Properties result = new Properties();
-        FileInputStream in = null;
-        try
+        
+        try ( FileInputStream in = new FileInputStream( new File( outputDirectory, "test.properties" ) ) )
         {
-            in = new FileInputStream( new File( outputDirectory, "test.properties" ) );
             result.load( in );
-        }
-        finally
-        {
-            IOUtil.close( in );
         }
 
         // email=foo@bar.com

@@ -19,49 +19,19 @@ package org.apache.maven.shared.filtering;
  * under the License.
  */
 
+import org.codehaus.plexus.ContainerConfiguration;
+import org.codehaus.plexus.PlexusConstants;
+import org.codehaus.plexus.PlexusTestCase;
+
 /**
- * @author Olivier Lamy
+ * Support class for injected tests. This should be moved off ancient Junit3 PlexusTestCase to more modern JUnit.
  */
-public class MavenFilteringException
-    extends Exception
+public abstract class TestSupport
+        extends PlexusTestCase
 {
-
-    /**
-     *
-     */
-    private static final long serialVersionUID = 1L;
-
-    /**
-     *
-     */
-    public MavenFilteringException()
+    @Override
+    protected void customizeContainerConfiguration( ContainerConfiguration configuration )
     {
-        // nothing
+        configuration.setAutoWiring( true ).setClassPathScanning( PlexusConstants.SCANNING_INDEX );
     }
-
-    /**
-     * @param message the message
-     */
-    public MavenFilteringException( String message )
-    {
-        super( message );
-    }
-
-    /**
-     * @param cause the cause of the exception
-     */
-    public MavenFilteringException( Throwable cause )
-    {
-        super( cause );
-    }
-
-    /**
-     * @param message a message
-     * @param cause a worthy cause
-     */
-    public MavenFilteringException( String message, Throwable cause )
-    {
-        super( message, cause );
-    }
-
 }

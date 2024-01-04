@@ -19,11 +19,19 @@ package org.apache.maven.shared.filtering;
  * under the License.
  */
 
+import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.TreeSet;
+
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Settings;
-import org.apache.maven.shared.utils.StringUtils;
-import org.apache.maven.shared.utils.io.FileUtils;
 import org.codehaus.plexus.interpolation.InterpolationPostProcessor;
 import org.codehaus.plexus.interpolation.Interpolator;
 import org.codehaus.plexus.interpolation.PrefixAwareRecursionInterceptor;
@@ -34,26 +42,21 @@ import org.codehaus.plexus.interpolation.SimpleRecursionInterceptor;
 import org.codehaus.plexus.interpolation.SingleResponseValueSource;
 import org.codehaus.plexus.interpolation.ValueSource;
 import org.codehaus.plexus.interpolation.multi.MultiDelimiterStringSearchInterpolator;
-import org.codehaus.plexus.logging.AbstractLogEnabled;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.Reader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Properties;
-
-import javax.annotation.Nonnull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class BaseFilter
-    extends AbstractLogEnabled
     implements DefaultFilterInfo
 {
+    private final Logger logger = LoggerFactory.getLogger( getClass() );
 
-    @Nonnull
-    public List<FileUtils.FilterWrapper> getDefaultFilterWrappers( final MavenProject mavenProject,
+    protected Logger getLogger()
+    {
+        return logger;
+    }
+
+    @Override
+    public List<FilterWrapper> getDefaultFilterWrappers( final MavenProject mavenProject,
                                                                    List<String> filters,
                                                                    final boolean escapedBackslashesInFilePath,
                                                                    MavenSession mavenSession,
@@ -73,15 +76,12 @@ class BaseFilter
 
     }
 
-    @Nonnull
-    public List<FileUtils.FilterWrapper> getDefaultFilterWrappers( final AbstractMavenFilteringRequest req )
+    @Override
+    public List<FilterWrapper> getDefaultFilterWrappers( final AbstractMavenFilteringRequest request )
         throws MavenFilteringException
     {
         // backup values
-        boolean supportMultiLineFiltering = req.isSupportMultiLineFiltering();
-
-        // compensate for null parameter value.
-        final AbstractMavenFilteringRequest request = req == null ? new MavenFileFilterRequest() : req;
+        boolean supportMultiLineFiltering = request.isSupportMultiLineFiltering();
 
         request.setSupportMultiLineFiltering( supportMultiLineFiltering );
 
@@ -134,7 +134,7 @@ class BaseFilter
         {
             if ( request.isInjectProjectBuildFilters() )
             {
-                List<String> buildFilters = new ArrayList<String>( request.getMavenProject().getBuild().getFilters() );
+                List<String> buildFilters = new ArrayList<>( request.getMavenProject().getBuild().getFilters() );
 
                 // JDK-8015656: (coll) unexpected NPE from removeAll
                 if ( request.getFileFilters() != null )
@@ -162,26 +162,25 @@ class BaseFilter
             filterProperties.putAll( request.getAdditionalProperties() );
         }
 
-        List<FileUtils.FilterWrapper> defaultFilterWrappers =
-            request == null ? new ArrayList<FileUtils.FilterWrapper>( 1 )
-                            : new ArrayList<FileUtils.FilterWrapper>( request.getDelimiters().size() + 1 );
+        List<FilterWrapper> defaultFilterWrappers = new ArrayList<>( request.getDelimiters().size() + 1 );
 
         if ( getLogger().isDebugEnabled() )
         {
-            getLogger().debug( "properties used " + filterProperties );
+            getLogger().debug( "properties used:" );
+            for ( String s : new TreeSet<>( filterProperties.stringPropertyNames() ) )
+            {
+                getLogger().debug( s + ": " + filterProperties.getProperty( s ) );
+            }
         }
 
         final ValueSource propertiesValueSource = new PropertiesBasedValueSource( filterProperties );
 
-        if ( request != null )
-        {
-            FileUtils.FilterWrapper wrapper =
-                new Wrapper( request.getDelimiters(), request.getMavenProject(), request.getMavenSession(),
-                             propertiesValueSource, request.getProjectStartExpressions(), request.getEscapeString(),
-                             request.isEscapeWindowsPaths(), request.isSupportMultiLineFiltering() );
+        FilterWrapper wrapper =
+            new Wrapper( request.getDelimiters(), request.getMavenProject(), request.getMavenSession(),
+                         propertiesValueSource, request.getProjectStartExpressions(), request.getEscapeString(),
+                         request.isEscapeWindowsPaths(), request.isSupportMultiLineFiltering() );
 
-            defaultFilterWrappers.add( wrapper );
-        }
+        defaultFilterWrappers.add( wrapper );
 
         return defaultFilterWrappers;
     }
@@ -200,15 +199,15 @@ class BaseFilter
 
             for ( String filterFile : propertiesFilePaths )
             {
-                if ( StringUtils.isEmpty( filterFile ) )
+                if (  filterFile == null || filterFile.trim().isEmpty() )
                 {
                     // skip empty file name
                     continue;
                 }
                 try
                 {
-                    File propFile = FileUtils.resolveFile( basedir, filterFile );
-                    Properties properties = PropertyUtils.loadPropertyFile( propFile, workProperties );
+                    File propFile = FilteringUtils.resolveFile( basedir, filterFile );
+                    Properties properties = PropertyUtils.loadPropertyFile( propFile, workProperties, getLogger() );
                     filterProperties.putAll( properties );
                     workProperties.putAll( properties );
                 }
@@ -221,7 +220,7 @@ class BaseFilter
     }
 
     private static final class Wrapper
-        extends FileUtils.FilterWrapper
+        extends FilterWrapper
     {
 
         private LinkedHashSet<String> delimiters;
@@ -255,6 +254,7 @@ class BaseFilter
             this.supportMultiLineFiltering = supportMultiLineFiltering;
         }
 
+        @Override
         public Reader getReader( Reader reader )
         {
             Interpolator interpolator = createInterpolator( delimiters, projectStartExpressions, propertiesValueSource,
@@ -319,6 +319,7 @@ class BaseFilter
         {
             interpolator.addPostProcessor( new InterpolationPostProcessor()
             {
+                @Override
                 public Object execute( String expression, Object value )
                 {
                     if ( value instanceof String )
