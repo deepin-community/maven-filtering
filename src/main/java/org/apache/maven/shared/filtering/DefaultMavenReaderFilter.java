@@ -19,28 +19,27 @@ package org.apache.maven.shared.filtering;
  * under the License.
  */
 
+import javax.inject.Named;
+import javax.inject.Singleton;
+
 import java.io.Reader;
 import java.util.Collections;
 import java.util.List;
 
-import javax.annotation.Nonnull;
-
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.shared.utils.io.FileUtils.FilterWrapper;
-import org.codehaus.plexus.component.annotations.Component;
 
 /**
  * @author Kristian Rosenvold
  */
-@Component( role = org.apache.maven.shared.filtering.MavenReaderFilter.class, hint = "default" )
+@Singleton
+@Named
 public class DefaultMavenReaderFilter
     extends BaseFilter
     implements MavenReaderFilter
 {
-    /** {@inheritDoc} */
-    @Nonnull
-    public Reader filter( @Nonnull Reader from, boolean filtering, MavenProject mavenProject, List<String> filters,
+    @Override
+    public Reader filter( Reader from, boolean filtering, MavenProject mavenProject, List<String> filters,
                           boolean escapedBackslashesInFilePath, MavenSession mavenSession )
                               throws MavenFilteringException
     {
@@ -55,24 +54,21 @@ public class DefaultMavenReaderFilter
         return filter( from, filtering, filterWrappers );
     }
 
-    /** {@inheritDoc} */
-    @Nonnull
-    public Reader filter( @Nonnull MavenReaderFilterRequest mavenFileFilterRequest )
+    @Override
+    public Reader filter( MavenReaderFilterRequest mavenFileFilterRequest )
         throws MavenFilteringException
     {
         List<FilterWrapper> filterWrappers = getDefaultFilterWrappers( mavenFileFilterRequest );
         return filter( mavenFileFilterRequest.getFrom(), mavenFileFilterRequest.isFiltering(), filterWrappers );
     }
 
-    /** {@inheritDoc} */
-    @Nonnull
-    public Reader filter( @Nonnull Reader from, boolean filtering, @Nonnull List<FilterWrapper> filterWrappers )
+    @Override
+    public Reader filter( Reader from, boolean filtering, List<FilterWrapper> filterWrappers )
     {
         return filterWrap( from, filtering ? filterWrappers : Collections.<FilterWrapper>emptyList() );
     }
 
-    @Nonnull
-    private static Reader filterWrap( @Nonnull Reader from, @Nonnull Iterable<FilterWrapper> wrappers )
+    private static Reader filterWrap( Reader from, Iterable<FilterWrapper> wrappers )
     {
         Reader reader = from;
         for ( FilterWrapper wrapper : wrappers )

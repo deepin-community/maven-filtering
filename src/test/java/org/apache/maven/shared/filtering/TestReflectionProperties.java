@@ -24,99 +24,83 @@ import java.io.FileInputStream;
 import java.util.Properties;
 
 import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.PlexusTestCase;
 
 /**
  * @author Olivier Lamy
  * @since 1.0-beta-1
- * @version $Id: TestReflectionProperties.java 1744899 2016-05-21 10:50:39Z khmarbaise $
+ *
  */
 public class TestReflectionProperties
-    extends PlexusTestCase
+    extends TestSupport
 {
 
     public void testSimpleFiltering()
         throws Exception
     {
-        FileInputStream readFileInputStream = null;
-        try
+        MavenProject mavenProject = new MavenProject();
+        mavenProject.setVersion( "1.0" );
+        mavenProject.setGroupId( "org.apache" );
+        Properties userProperties = new Properties();
+        userProperties.setProperty( "foo", "bar" );
+        MavenFileFilter mavenFileFilter = lookup( MavenFileFilter.class );
+
+        File from = new File( getBasedir() + "/src/test/units-files/reflection-test.properties" );
+        File to = new File( getBasedir() + "/target/reflection-test.properties" );
+
+        if ( to.exists() )
         {
-            MavenProject mavenProject = new MavenProject();
-            mavenProject.setVersion( "1.0" );
-            mavenProject.setGroupId( "org.apache" );
-            Properties userProperties = new Properties();
-            userProperties.setProperty( "foo", "bar" );
-            MavenFileFilter mavenFileFilter = lookup( MavenFileFilter.class );
+            to.delete();
+        }
+        
+        mavenFileFilter.copyFile( from, to, true, mavenProject, null, false, null,
+                                  new StubMavenSession( userProperties ) );
 
-            File from = new File( getBasedir() + "/src/test/units-files/reflection-test.properties" );
-            File to = new File( getBasedir() + "/target/reflection-test.properties" );
+        Properties reading = new Properties();
 
-            if ( to.exists() )
-            {
-                to.delete();
-            }
-
-            mavenFileFilter.copyFile( from, to, true, mavenProject, null, false, null,
-                                      new StubMavenSession( userProperties ) );
-
-            Properties reading = new Properties();
-            readFileInputStream = new FileInputStream( to );
+        try ( FileInputStream readFileInputStream = new FileInputStream( to ) )
+        {
             reading.load( readFileInputStream );
-            assertEquals( "1.0", reading.get( "version" ) );
-            assertEquals( "org.apache", reading.get( "groupId" ) );
-            assertEquals( "bar", reading.get( "foo" ) );
-            assertEquals( "none filtered", reading.get( "none" ) );
-        }
-        finally
-        {
-            if ( readFileInputStream != null )
-            {
-                readFileInputStream.close();
-            }
         }
 
+        assertEquals( "1.0", reading.get( "version" ) );
+        assertEquals( "org.apache", reading.get( "groupId" ) );
+        assertEquals( "bar", reading.get( "foo" ) );
+        assertEquals( "none filtered", reading.get( "none" ) );
     }
 
     public void testSimpleNonFiltering()
         throws Exception
     {
-        FileInputStream readFileInputStream = null;
-        try
+        
+        MavenProject mavenProject = new MavenProject();
+        mavenProject.setVersion( "1.0" );
+        mavenProject.setGroupId( "org.apache" );
+        Properties userProperties = new Properties();
+        userProperties.setProperty( "foo", "bar" );
+        MavenFileFilter mavenFileFilter = lookup( MavenFileFilter.class );
+
+        File from = new File( getBasedir() + "/src/test/units-files/reflection-test.properties" );
+        File to = new File( getBasedir() + "/target/reflection-test.properties" );
+
+        if ( to.exists() )
         {
-            MavenProject mavenProject = new MavenProject();
-            mavenProject.setVersion( "1.0" );
-            mavenProject.setGroupId( "org.apache" );
-            Properties userProperties = new Properties();
-            userProperties.setProperty( "foo", "bar" );
-            MavenFileFilter mavenFileFilter = lookup( MavenFileFilter.class );
+            to.delete();
+        }
 
-            File from = new File( getBasedir() + "/src/test/units-files/reflection-test.properties" );
-            File to = new File( getBasedir() + "/target/reflection-test.properties" );
+        mavenFileFilter.copyFile( from, to, false, mavenProject, null, false, null,
+                                  new StubMavenSession( userProperties ) );
 
-            if ( to.exists() )
-            {
-                to.delete();
-            }
+        Properties reading = new Properties();
 
-            mavenFileFilter.copyFile( from, to, false, mavenProject, null, false, null,
-                                      new StubMavenSession( userProperties ) );
-
-            Properties reading = new Properties();
-            readFileInputStream = new FileInputStream( to );
+        try ( FileInputStream readFileInputStream = new FileInputStream( to ); )
+        {
             reading.load( readFileInputStream );
-            assertEquals( "${pom.version}", reading.get( "version" ) );
-            assertEquals( "${pom.groupId}", reading.get( "groupId" ) );
-            assertEquals( "${foo}", reading.get( "foo" ) );
-            assertEquals( "none filtered", reading.get( "none" ) );
-        }
-        finally
-        {
-            if ( readFileInputStream != null )
-            {
-                readFileInputStream.close();
-            }
         }
 
+        assertEquals( "${pom.version}", reading.get( "version" ) );
+        assertEquals( "${pom.groupId}", reading.get( "groupId" ) );
+        assertEquals( "${foo}", reading.get( "foo" ) );
+        assertEquals( "none filtered", reading.get( "none" ) );
     }
 
 }

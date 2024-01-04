@@ -1,3 +1,22 @@
+maven-filtering (3.3.0-1) unstable; urgency=medium
+
+  * Team upload
+
+  [ Debian Janitor ]
+  * Remove MIA uploader Damien Raude-Morvan <drazzib@debian.org>.
+    Closes: #889434
+
+  [ Emmanuel Bourg]
+  * New upstream release
+    - Replaced plexus-component-metadata with eclipse-sisu-maven-plugin
+    - Updated the Maven rules
+  * Use salsa.debian.org Vcs-* URLs
+  * Standards-Version updated to 4.6.1
+  * Switch to debhelper level 13
+  * Track and download the new releases from GitHub
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Thu, 15 Dec 2022 23:39:49 +0100
+
 maven-filtering (3.1.1-1) unstable; urgency=medium
 
   * Team upload.

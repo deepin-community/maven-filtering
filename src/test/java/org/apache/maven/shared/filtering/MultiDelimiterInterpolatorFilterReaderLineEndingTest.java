@@ -20,8 +20,8 @@ package org.apache.maven.shared.filtering;
  */
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Matchers.isA;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
 import java.io.Reader;
@@ -30,9 +30,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 
+import org.apache.commons.io.IOUtils;
 import org.codehaus.plexus.interpolation.Interpolator;
 import org.codehaus.plexus.interpolation.RecursionInterceptor;
-import org.codehaus.plexus.util.IOUtil;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -45,6 +45,7 @@ public class MultiDelimiterInterpolatorFilterReaderLineEndingTest
     @Mock
     private Interpolator interpolator;
 
+    @Override
     @Before
     public void onSetup()
     {
@@ -99,9 +100,9 @@ public class MultiDelimiterInterpolatorFilterReaderLineEndingTest
         Reader in = new StringReader( "toto@titi.com ${foo}" );
         MultiDelimiterInterpolatorFilterReaderLineEnding reader =
             new MultiDelimiterInterpolatorFilterReaderLineEnding( in, interpolator, true );
-        reader.setDelimiterSpecs( new HashSet<String>( Arrays.asList( "${*}", "@" ) ) );
+        reader.setDelimiterSpecs( new HashSet<>( Arrays.asList( "${*}", "@" ) ) );
 
-        assertEquals( "toto@titi.com bar", IOUtil.toString( reader ) );
+        assertEquals( "toto@titi.com bar", IOUtils.toString( reader ) );
     }
 
     // http://stackoverflow.com/questions/21786805/maven-war-plugin-customize-filter-delimitters-in-webresources/
@@ -117,8 +118,8 @@ public class MultiDelimiterInterpolatorFilterReaderLineEndingTest
         MultiDelimiterInterpolatorFilterReaderLineEnding reader =
             new MultiDelimiterInterpolatorFilterReaderLineEnding( in, interpolator, true );
         reader.setEscapeString( "\\" );
-        reader.setDelimiterSpecs( new HashSet<String>( Arrays.asList( "${*}", "@" ) ) );
+        reader.setDelimiterSpecs( new HashSet<>( Arrays.asList( "${*}", "@" ) ) );
 
-        assertEquals( "  url=\"jdbc:oracle:thin:@DB_SERVER:DB_PORT:DB_NAME\"", IOUtil.toString( reader ) );
+        assertEquals( "  url=\"jdbc:oracle:thin:@DB_SERVER:DB_PORT:DB_NAME\"", IOUtils.toString( reader ) );
     }
 }

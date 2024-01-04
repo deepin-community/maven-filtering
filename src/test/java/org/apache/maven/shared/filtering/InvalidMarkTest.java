@@ -22,25 +22,25 @@ package org.apache.maven.shared.filtering;
 import java.io.File;
 import java.util.Collections;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.maven.model.Resource;
-import org.apache.maven.shared.utils.io.FileUtils;
-import org.codehaus.plexus.PlexusTestCase;
 
 /**
  * @author Mikolaj Izdebski
  */
 public class InvalidMarkTest
-    extends PlexusTestCase
+    extends TestSupport
 {
     File outputDirectory = new File( getBasedir(), "target/LongLineTest" );
 
+    @Override
     protected void setUp()
         throws Exception
     {
         super.setUp();
         if ( outputDirectory.exists() )
         {
-            FileUtils.forceDelete( outputDirectory );
+            FileUtils.deleteDirectory( outputDirectory );
         }
         outputDirectory.mkdirs();
     }

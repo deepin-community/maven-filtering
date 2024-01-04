@@ -27,8 +27,6 @@ import java.util.List;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Resource;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.shared.utils.io.FileUtils;
-import org.apache.maven.shared.utils.io.FileUtils.FilterWrapper;
 import org.codehaus.plexus.interpolation.StringSearchInterpolator;
 import org.codehaus.plexus.interpolation.ValueSource;
 
@@ -47,7 +45,7 @@ public class MavenResourcesExecution
 
     private List<String> nonFilteredFileExtensions;
 
-    private List<FileUtils.FilterWrapper> filterWrappers;
+    private List<FilterWrapper> filterWrappers;
 
     private File resourcesBaseDirectory;
 
@@ -56,6 +54,11 @@ public class MavenResourcesExecution
     private boolean filterFilenames = false;
 
     private String encoding;
+
+    /**
+     * @since 3.2.0
+     */
+    private String propertiesEncoding;
 
     /**
      * By default files like {@code .gitignore}, {@code .cvsignore} etc. are excluded which means they will not being
@@ -81,7 +84,7 @@ public class MavenResourcesExecution
      * <li>Darcs: &#42;&#42;/_darcs, &#42;&#42;/_darcs/&#42;&#42;, &#42;&#42;/.darcsrepo,
      * &#42;&#42;/.darcsrepo/&#42;&#42;&#42;&#42;/-darcs-backup&#42;, &#42;&#42;/.darcs-temp-mail
      * </ul>
-     * 
+     *
      * @since 3.1.0
      */
     private boolean addDefaultExcludes = true;
@@ -106,6 +109,12 @@ public class MavenResourcesExecution
      * @since 1.0
      */
     private boolean supportMultiLineFiltering;
+
+    /**
+     * Write resources to a flattened directory structure.
+     *
+     */
+    private boolean flatten = false;
 
     /**
      * Do nothing.
@@ -150,7 +159,7 @@ public class MavenResourcesExecution
      * @param nonFilteredFileExtensions The list of extensions which should not being filtered.
      */
     public MavenResourcesExecution( List<Resource> resources, File outputDirectory, String encoding,
-                                    List<FileUtils.FilterWrapper> filterWrappers, File resourcesBaseDirectory,
+                                    List<FilterWrapper> filterWrappers, File resourcesBaseDirectory,
                                     List<String> nonFilteredFileExtensions )
     {
         this();
@@ -165,7 +174,7 @@ public class MavenResourcesExecution
 
     /**
      * Return the encoding.
-     * 
+     *
      * @return Current encoding.
      */
     public String getEncoding()
@@ -175,12 +184,34 @@ public class MavenResourcesExecution
 
     /**
      * Set the value for encoding.
-     * 
+     *
      * @param encoding Give the new value for encoding.
      */
     public void setEncoding( String encoding )
     {
         this.encoding = encoding;
+    }
+
+    /**
+     * Return the encoding of properties files.
+     *
+     * @return Current encoding of properties files.
+     * @since 3.2.0
+     */
+    public String getPropertiesEncoding()
+    {
+        return propertiesEncoding;
+    }
+
+    /**
+     * Set the value for encoding of properties files.
+     *
+     * @param propertiesEncoding Give the new value for encoding of properties files.
+     * @since 3.2.0
+     */
+    public void setPropertiesEncoding( String propertiesEncoding )
+    {
+        this.propertiesEncoding = propertiesEncoding;
     }
 
     /**
@@ -232,17 +263,17 @@ public class MavenResourcesExecution
     }
 
     /**
-     * @return List of {@link FileUtils.FilterWrapper}
+     * @return List of {@link FilterWrapper}
      */
-    public List<FileUtils.FilterWrapper> getFilterWrappers()
+    public List<FilterWrapper> getFilterWrappers()
     {
         return filterWrappers;
     }
 
     /**
-     * @param filterWrappers List of {@link FileUtils.FilterWrapper}
+     * @param filterWrappers List of {@link FilterWrapper}
      */
-    public void setFilterWrappers( List<FileUtils.FilterWrapper> filterWrappers )
+    public void setFilterWrappers( List<FilterWrapper> filterWrappers )
     {
         this.filterWrappers = filterWrappers;
     }
@@ -254,7 +285,7 @@ public class MavenResourcesExecution
     {
         if ( this.filterWrappers == null )
         {
-            this.filterWrappers = new ArrayList<FilterWrapper>();
+            this.filterWrappers = new ArrayList<>();
         }
         this.filterWrappers.add( filterWrapper );
     }
@@ -270,8 +301,9 @@ public class MavenResourcesExecution
     public void addFilerWrapperWithEscaping( final ValueSource valueSource, final String startExp, final String endExp,
                                              final String escapeString, final boolean multiLineFiltering )
     {
-        addFilterWrapper( new FileUtils.FilterWrapper()
+        addFilterWrapper( new FilterWrapper()
         {
+            @Override
             public Reader getReader( Reader reader )
             {
                 StringSearchInterpolator propertiesInterpolator = new StringSearchInterpolator( startExp, endExp );
@@ -357,6 +389,26 @@ public class MavenResourcesExecution
     }
 
     /**
+     * Write to flattened directory structure.
+     *
+     * @return {@link #flatten}
+     */
+    public boolean isFlatten()
+    {
+        return flatten;
+    }
+
+    /**
+     * Write to flattened directory structure.
+     *
+     * @param flatten flatten true or false.
+     */
+    public void setFlatten( boolean flatten )
+    {
+        this.flatten = flatten;
+    }
+
+    /**
      * Copy any empty directories included in the Resources.
      *
      * @return {@link #includeEmptyDirs}
@@ -402,25 +454,25 @@ public class MavenResourcesExecution
     public MavenResourcesExecution copyOf()
     {
         MavenResourcesExecution mre = new MavenResourcesExecution();
-        mre.setAdditionalProperties( mre.getAdditionalProperties() );
-        mre.setEncoding( mre.getEncoding() );
-        mre.setEscapedBackslashesInFilePath( mre.isEscapedBackslashesInFilePath() );
-        mre.setEscapeString( mre.getEscapeString() );
-        mre.setFileFilters( copyList( mre.getFileFilters() ) );
-        mre.setFilterWrappers( copyList( mre.getFilterWrappers() ) );
-        mre.setIncludeEmptyDirs( mre.isIncludeEmptyDirs() );
-        mre.setInjectProjectBuildFilters( mre.isInjectProjectBuildFilters() );
-        mre.setMavenProject( mre.getMavenProject() );
-        mre.setMavenSession( mre.getMavenSession() );
-        mre.setNonFilteredFileExtensions( copyList( mre.getNonFilteredFileExtensions() ) );
-        mre.setOutputDirectory( mre.getOutputDirectory() );
-        mre.setOverwrite( mre.isOverwrite() );
-        mre.setProjectStartExpressions( copyList( mre.getProjectStartExpressions() ) );
-        mre.setResources( copyList( mre.getResources() ) );
-        mre.setResourcesBaseDirectory( mre.getResourcesBaseDirectory() );
-        mre.setUseDefaultFilterWrappers( mre.isUseDefaultFilterWrappers() );
-        mre.setAddDefaultExcludes( mre.isAddDefaultExcludes() );
-        mre.setSupportMultiLineFiltering( mre.isSupportMultiLineFiltering() );
+        mre.setAdditionalProperties( this.getAdditionalProperties() );
+        mre.setEncoding( this.getEncoding() );
+        mre.setEscapedBackslashesInFilePath( this.isEscapedBackslashesInFilePath() );
+        mre.setEscapeString( this.getEscapeString() );
+        mre.setFileFilters( copyList( this.getFileFilters() ) );
+        mre.setFilterWrappers( copyList( this.getFilterWrappers() ) );
+        mre.setIncludeEmptyDirs( this.isIncludeEmptyDirs() );
+        mre.setInjectProjectBuildFilters( this.isInjectProjectBuildFilters() );
+        mre.setMavenProject( this.getMavenProject() );
+        mre.setMavenSession( this.getMavenSession() );
+        mre.setNonFilteredFileExtensions( copyList( this.getNonFilteredFileExtensions() ) );
+        mre.setOutputDirectory( this.getOutputDirectory() );
+        mre.setOverwrite( this.isOverwrite() );
+        mre.setProjectStartExpressions( copyList( this.getProjectStartExpressions() ) );
+        mre.setResources( copyList( this.getResources() ) );
+        mre.setResourcesBaseDirectory( this.getResourcesBaseDirectory() );
+        mre.setUseDefaultFilterWrappers( this.isUseDefaultFilterWrappers() );
+        mre.setAddDefaultExcludes( this.isAddDefaultExcludes() );
+        mre.setSupportMultiLineFiltering( this.isSupportMultiLineFiltering() );
         return mre;
     }
 
@@ -432,21 +484,21 @@ public class MavenResourcesExecution
         }
         else if ( lst.isEmpty() )
         {
-            return new ArrayList<T>();
+            return new ArrayList<>();
         }
         else
         {
-            return new ArrayList<T>( lst );
+            return new ArrayList<>( lst );
         }
     }
 
-    /** {@inheritDoc} */
+    @Override
     public boolean isSupportMultiLineFiltering()
     {
         return supportMultiLineFiltering;
     }
 
-    /** {@inheritDoc} */
+    @Override
     public void setSupportMultiLineFiltering( boolean supportMultiLineFiltering )
     {
         this.supportMultiLineFiltering = supportMultiLineFiltering;

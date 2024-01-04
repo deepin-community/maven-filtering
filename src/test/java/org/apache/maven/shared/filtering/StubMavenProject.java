@@ -27,7 +27,7 @@ import org.apache.maven.project.MavenProject;
 /**
  * @author Olivier Lamy
  * @since 1.0-beta-1
- * @version $Id: StubMavenProject.java 1632611 2014-10-17 15:36:52Z khmarbaise $
+ *
  */
 public class StubMavenProject
     extends MavenProject
@@ -41,6 +41,7 @@ public class StubMavenProject
         this.basedir = basedir;
     }
 
+    @Override
     public Properties getProperties()
     {
         return this.properties;
@@ -60,6 +61,7 @@ public class StubMavenProject
         this.properties.put( key, value );
     }
 
+    @Override
     public File getBasedir()
     {
         return basedir;

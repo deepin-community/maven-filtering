@@ -19,50 +19,38 @@ package org.apache.maven.shared.filtering;
  * under the License.
  */
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.UnsupportedEncodingException;
-import java.io.Writer;
-import java.util.List;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
 
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.shared.utils.StringUtils;
-import org.apache.maven.shared.utils.io.FileUtils;
-import org.apache.maven.shared.utils.io.FileUtils.FilterWrapper;
-import org.apache.maven.shared.utils.io.IOUtil;
-import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
 import org.sonatype.plexus.build.incremental.BuildContext;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author Olivier Lamy
  */
-@Component( role = org.apache.maven.shared.filtering.MavenFileFilter.class, hint = "default" )
+@Singleton
+@Named
 public class DefaultMavenFileFilter
     extends BaseFilter
     implements MavenFileFilter
 {
+    private final BuildContext buildContext;
 
-    @Requirement
-    private MavenReaderFilter readerFilter;
+    @Inject
+    public DefaultMavenFileFilter( BuildContext buildContext )
+    {
+        this.buildContext = requireNonNull( buildContext );
+    }
 
-    @Requirement
-    private BuildContext buildContext;
-
-    /** {@inheritDoc} */
+    @Override
     public void copyFile( File from, File to, boolean filtering, MavenProject mavenProject, List<String> filters,
                           boolean escapedBackslashesInFilePath, String encoding, MavenSession mavenSession )
                               throws MavenFilteringException
@@ -74,11 +62,11 @@ public class DefaultMavenFileFilter
         mre.setMavenSession( mavenSession );
         mre.setInjectProjectBuildFilters( true );
 
-        List<FileUtils.FilterWrapper> filterWrappers = getDefaultFilterWrappers( mre );
+        List<FilterWrapper> filterWrappers = getDefaultFilterWrappers( mre );
         copyFile( from, to, filtering, filterWrappers, encoding );
     }
 
-    /** {@inheritDoc} */
+    @Override
     public void copyFile( MavenFileFilterRequest mavenFileFilterRequest )
         throws MavenFilteringException
     {
@@ -88,8 +76,8 @@ public class DefaultMavenFileFilter
                   mavenFileFilterRequest.isFiltering(), filterWrappers, mavenFileFilterRequest.getEncoding() );
     }
 
-    /** {@inheritDoc} */
-    public void copyFile( File from, File to, boolean filtering, List<FileUtils.FilterWrapper> filterWrappers,
+    @Override
+    public void copyFile( File from, File to, boolean filtering, List<FilterWrapper> filterWrappers,
                           String encoding )
                               throws MavenFilteringException
     {
@@ -97,8 +85,8 @@ public class DefaultMavenFileFilter
         copyFile( from, to, filtering, filterWrappers, encoding, false );
     }
 
-    /** {@inheritDoc} */
-    public void copyFile( File from, File to, boolean filtering, List<FileUtils.FilterWrapper> filterWrappers,
+    @Override
+    public void copyFile( File from, File to, boolean filtering, List<FilterWrapper> filterWrappers,
                           String encoding, boolean overwrite )
                               throws MavenFilteringException
     {
@@ -110,7 +98,8 @@ public class DefaultMavenFileFilter
                 {
                     getLogger().debug( "filtering " + from.getPath() + " to " + to.getPath() );
                 }
-                filterFile( from, to, encoding, filterWrappers );
+                FilterWrapper[] array = filterWrappers.toArray( new FilterWrapper[0] );
+                FilteringUtils.copyFile( from, to, encoding, array, false );
             }
             else
             {
@@ -118,77 +107,15 @@ public class DefaultMavenFileFilter
                 {
                     getLogger().debug( "copy " + from.getPath() + " to " + to.getPath() );
                 }
-                FileUtils.copyFile( from, to, encoding, new FileUtils.FilterWrapper[0], overwrite );
+                FilteringUtils.copyFile( from, to, encoding, new FilterWrapper[0], overwrite );
             }
 
             buildContext.refresh( to );
         }
         catch ( IOException e )
         {
-            throw new MavenFilteringException( e.getMessage(), e );
-        }
-
-    }
-
-    private void filterFile( @Nonnull File from, @Nonnull File to, @Nullable String encoding,
-                             @Nullable List<FilterWrapper> wrappers )
-                                 throws IOException, MavenFilteringException
-    {
-        if ( wrappers != null && wrappers.size() > 0 )
-        {
-            Reader fileReader = null;
-            Writer fileWriter = null;
-            try
-            {
-                fileReader = getFileReader( encoding, from );
-                fileWriter = getFileWriter( encoding, to );
-                Reader src = readerFilter.filter( fileReader, true, wrappers );
-
-                IOUtil.copy( src, fileWriter );
-            }
-            finally
-            {
-                IOUtil.close( fileReader );
-                IOUtil.close( fileWriter );
-            }
-        }
-        else
-        {
-            if ( to.lastModified() < from.lastModified() )
-            {
-                FileUtils.copyFile( from, to );
-            }
+            throw new MavenFilteringException( ( filtering ? "filtering " : "copying " ) + from.getPath() + " to "
+                + to.getPath() + " failed with " + e.getClass().getSimpleName() + ": " + e.getMessage(), e );
         }
     }
-
-    private Writer getFileWriter( String encoding, File to )
-        throws IOException
-    {
-        if ( StringUtils.isEmpty( encoding ) )
-        {
-            return new FileWriter( to );
-        }
-        else
-        {
-            FileOutputStream outstream = new FileOutputStream( to );
-
-            return new OutputStreamWriter( outstream, encoding );
-        }
-    }
-
-    private Reader getFileReader( String encoding, File from )
-        throws FileNotFoundException, UnsupportedEncodingException
-    {
-        // buffer so it isn't reading a byte at a time!
-        if ( StringUtils.isEmpty( encoding ) )
-        {
-            return new BufferedReader( new FileReader( from ) );
-        }
-        else
-        {
-            FileInputStream instream = new FileInputStream( from );
-            return new BufferedReader( new InputStreamReader( instream, encoding ) );
-        }
-    }
-
 }

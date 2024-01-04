@@ -22,68 +22,70 @@ package org.apache.maven.shared.filtering;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Resource;
 import org.apache.maven.settings.Settings;
-import org.apache.maven.shared.utils.io.FileUtils;
-import org.apache.maven.shared.utils.io.IOUtil;
-import org.codehaus.plexus.PlexusTestCase;
 import org.codehaus.plexus.interpolation.PrefixedObjectValueSource;
 import org.codehaus.plexus.interpolation.ValueSource;
 
 /**
  * @author Olivier Lamy
- * @version $Id: DefaultMavenResourcesFilteringTest.java 1744899 2016-05-21 10:50:39Z khmarbaise $
+ *
  * @since 1.0-beta-1
  */
 public class DefaultMavenResourcesFilteringTest
-    extends PlexusTestCase
+    extends TestSupport
 {
 
-    File outputDirectory = new File( getBasedir(), "target/DefaultMavenResourcesFilteringTest" );
+    private File outputDirectory = new File( getBasedir(), "target/DefaultMavenResourcesFilteringTest" );
+    private File baseDir = new File( "c:\\foo\\bar" );
+    private StubMavenProject mavenProject = new StubMavenProject( baseDir );
+    private MavenResourcesFiltering mavenResourcesFiltering;
 
+    @Override
     protected void setUp()
         throws Exception
     {
         super.setUp();
         if ( outputDirectory.exists() )
         {
-            FileUtils.forceDelete( outputDirectory );
+            FileUtils.deleteDirectory( outputDirectory );
         }
         outputDirectory.mkdirs();
+        
+        mavenProject.setVersion( "1.0" );
+        mavenProject.setGroupId( "org.apache" );
+        mavenProject.setName( "test project" );
+        
+        mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
     }
 
     public void testSimpleFiltering()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
         Properties projectProperties = new Properties();
         projectProperties.put( "foo", "bar" );
         projectProperties.put( "java.version", "zloug" );
         mavenProject.setProperties( projectProperties );
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
         File initialImageFile = new File( unitFilesDir, "happy_duke.gif" );
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -95,26 +97,22 @@ public class DefaultMavenResourcesFilteringTest
         mavenResourcesExecution.setUseDefaultFilterWrappers( true );
         mavenResourcesFiltering.filterResources( mavenResourcesExecution );
 
-        assertFiltering( baseDir, initialImageFile, false, false );
+        assertFiltering( initialImageFile, false, false );
     }
 
     public void testSessionFiltering()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/session-filtering";
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
 
         Settings settings = new Settings();
         settings.setLocalRepository( System.getProperty( "localRepository",
@@ -136,15 +134,10 @@ public class DefaultMavenResourcesFilteringTest
         mavenResourcesFiltering.filterResources( mre );
 
         Properties result = new Properties();
-        FileInputStream in = null;
-        try
+        
+        try ( FileInputStream in = new FileInputStream( new File( outputDirectory, "session-filter-target.txt" ) ) )
         {
-            in = new FileInputStream( new File( outputDirectory, "session-filter-target.txt" ) );
             result.load( in );
-        }
-        finally
-        {
-            IOUtil.close( in );
         }
 
         assertEquals( settings.getLocalRepository(), result.getProperty( "session.settings.local.repo" ) );
@@ -155,28 +148,21 @@ public class DefaultMavenResourcesFilteringTest
     public void testWithMavenResourcesExecution()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
         Properties projectProperties = new Properties();
         projectProperties.put( "foo", "bar" );
         projectProperties.put( "java.version", "zloug" );
         mavenProject.setProperties( projectProperties );
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
         File initialImageFile = new File( unitFilesDir, "happy_duke.gif" );
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -186,34 +172,27 @@ public class DefaultMavenResourcesFilteringTest
                                          nonFilteredFileExtensions, new StubMavenSession() );
         mavenResourcesExecution.setEscapeString( "\\" );
         mavenResourcesFiltering.filterResources( mavenResourcesExecution );
-        assertFiltering( baseDir, initialImageFile, true, false );
+        assertFiltering( initialImageFile, true, false );
     }
 
-    public void testWithMavenResourcesExecutionWithAdditionnalProperties()
+    public void testWithMavenResourcesExecutionWithAdditionalProperties()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
         Properties projectProperties = new Properties();
         projectProperties.put( "foo", "bar" );
         projectProperties.put( "java.version", "zloug" );
         mavenProject.setProperties( projectProperties );
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
         File initialImageFile = new File( unitFilesDir, "happy_duke.gif" );
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -227,42 +206,33 @@ public class DefaultMavenResourcesFilteringTest
         mavenResourcesExecution.setAdditionalProperties( additionalProperties );
         mavenResourcesExecution.setEscapeString( "\\" );
         mavenResourcesFiltering.filterResources( mavenResourcesExecution );
-        assertFiltering( baseDir, initialImageFile, true, true );
+        assertFiltering( initialImageFile, true, true );
     }
 
-    private void assertFiltering( File baseDir, File initialImageFile, boolean escapeTest,
-                                  boolean additionnalProperties )
+    private void assertFiltering( File initialImageFile, boolean escapeTest,
+                                  boolean additionalProperties )
                                       throws Exception
     {
         assertEquals( 7, outputDirectory.listFiles().length );
         Properties result = new Properties();
-        FileInputStream in = null;
-        try
+        
+        try ( FileInputStream in = new FileInputStream( new File( outputDirectory, "empty-maven-resources-filtering.txt" ) ) )
         {
-            in = new FileInputStream( new File( outputDirectory, "empty-maven-resources-filtering.txt" ) );
             result.load( in );
         }
-        finally
-        {
-            IOUtil.close( in );
-        }
-
+        
         assertTrue( result.isEmpty() );
 
         result = new Properties();
-        in = null;
-        try
+
+        try ( FileInputStream in = new FileInputStream( new File( outputDirectory, "maven-resources-filtering.txt" ) ) )
         {
-            in = new FileInputStream( new File( outputDirectory, "maven-resources-filtering.txt" ) );
             result.load( in );
         }
-        finally
-        {
-            IOUtil.close( in );
-        }
+
         assertFalse( result.isEmpty() );
 
-        if ( additionnalProperties )
+        if ( additionalProperties )
         {
             assertEquals( "1973-06-14", result.getProperty( "goodDate" ) );
             assertEquals( "99.00", result.get( "version" ) );
@@ -305,28 +275,21 @@ public class DefaultMavenResourcesFilteringTest
     public void testAddingTokens()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        final StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
         Properties projectProperties = new Properties();
         projectProperties.put( "foo", "bar" );
         projectProperties.put( "java.version", "zloug" );
         mavenProject.setProperties( projectProperties );
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
         File initialImageFile = new File( unitFilesDir, "happy_duke.gif" );
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -346,23 +309,18 @@ public class DefaultMavenResourcesFilteringTest
             PropertyUtils.loadPropertyFile( new File( outputDirectory, "maven-resources-filtering.txt" ), null );
         assertFalse( result.isEmpty() );
         assertEquals( mavenProject.getName(), result.get( "pomName" ) );
-        assertFiltering( baseDir, initialImageFile, false, false );
+        assertFiltering( initialImageFile, false, false );
     }
 
     public void testNoFiltering()
         throws Exception
     {
-        StubMavenProject mavenProject = new StubMavenProject( new File( getBasedir() ) );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
         File initialImageFile = new File( unitFilesDir, "happy_duke.gif" );
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
 
         resource.setDirectory( unitFilesDir );
@@ -396,64 +354,44 @@ public class DefaultMavenResourcesFilteringTest
         assertTrue( filesAreIdentical( initialImageFile, imageFile ) );
     }
 
-    public static boolean filesAreIdentical( File expected, File current )
+    private static boolean filesAreIdentical( File expected, File current )
         throws IOException
     {
         if ( expected.length() != current.length() )
         {
             return false;
         }
-        FileInputStream expectedIn = null;
-        FileInputStream currentIn = null;
-        try
+
+        byte[] expectedBuffer = Files.readAllBytes( expected.toPath() );
+        byte[] currentBuffer = Files.readAllBytes( current.toPath() );
+        if ( expectedBuffer.length != currentBuffer.length )
         {
-            expectedIn = new FileInputStream( expected );
-            currentIn = new FileInputStream( current );
-
-            byte[] expectedBuffer = IOUtil.toByteArray( expectedIn );
-
-            byte[] currentBuffer = IOUtil.toByteArray( currentIn );
-            if ( expectedBuffer.length != currentBuffer.length )
+            return false;
+        }
+        for ( int i = 0, size = expectedBuffer.length; i < size; i++ )
+        {
+            if ( expectedBuffer[i] != currentBuffer[i] )
             {
                 return false;
             }
-            for ( int i = 0, size = expectedBuffer.length; i < size; i++ )
-            {
-                if ( expectedBuffer[i] != currentBuffer[i] )
-                {
-                    return false;
-                }
-            }
         }
-        finally
-        {
-            IOUtil.close( expectedIn );
-            IOUtil.close( currentIn );
-        }
-        return true;
+    return true;
     }
 
     public void testIncludeOneFile()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
         resource.addInclude( "includ*" );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -471,25 +409,17 @@ public class DefaultMavenResourcesFilteringTest
     public void testIncludeOneFileAndDirectory()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
-
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
         resource.addInclude( "includ*" );
         resource.addInclude( "**/includ*" );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -509,8 +439,8 @@ public class DefaultMavenResourcesFilteringTest
 
     }
 
-    public void testExcludeOneFile()
-        throws Exception
+    public void testFlattenDirectoryStructure()
+            throws Exception
     {
         File baseDir = new File( "c:\\foo\\bar" );
         StubMavenProject mavenProject = new StubMavenProject( baseDir );
@@ -523,14 +453,89 @@ public class DefaultMavenResourcesFilteringTest
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
+        resources.add( resource );
+        resource.setDirectory( unitFilesDir );
+        resource.setFiltering( true );
+        resource.addInclude( "includ*" );
+        resource.addInclude( "**/includ*" );
+
+        List<String> filtersFile = new ArrayList<>();
+        filtersFile.add( getBasedir()
+                + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
+
+        MavenResourcesExecution mavenResourcesExecution =
+                new MavenResourcesExecution( resources, outputDirectory, mavenProject, "UTF-8", filtersFile,
+                        Collections.<String> emptyList(), new StubMavenSession() );
+        mavenResourcesExecution.setFlatten(true);
+        mavenResourcesExecution.setOverwrite(true);
+        mavenResourcesFiltering.filterResources( mavenResourcesExecution );
+
+        File[] files = outputDirectory.listFiles();
+        assertNotNull( files );
+        assertEquals( 2, files.length );
+        File includeFile = new File( outputDirectory, "includefile.txt" );
+        assertTrue( includeFile.exists() );
+
+        includeFile = new File( outputDirectory, "include.txt" );
+        assertTrue( includeFile.exists() );
+
+    }
+
+    public void testFlattenDirectoryStructureWithoutOverride()
+            throws Exception
+    {
+        File baseDir = new File( "c:\\foo\\bar" );
+        StubMavenProject mavenProject = new StubMavenProject( baseDir );
+        mavenProject.setVersion( "1.0" );
+        mavenProject.setGroupId( "org.apache" );
+        mavenProject.setName( "test project" );
+
+        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
+
+        String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
+
+        Resource resource = new Resource();
+        List<Resource> resources = new ArrayList<>();
+        resources.add( resource );
+        resource.setDirectory( unitFilesDir );
+        resource.setFiltering( true );
+        resource.addInclude( "includ*" );
+        resource.addInclude( "**/includ*" );
+
+        List<String> filtersFile = new ArrayList<>();
+        filtersFile.add( getBasedir()
+                + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
+
+        MavenResourcesExecution mavenResourcesExecution =
+                new MavenResourcesExecution( resources, outputDirectory, mavenProject, "UTF-8", filtersFile,
+                        Collections.<String> emptyList(), new StubMavenSession() );
+        mavenResourcesExecution.setFlatten(true);
+        mavenResourcesExecution.setOverwrite(false);
+        try {
+            mavenResourcesFiltering.filterResources(mavenResourcesExecution);
+        } catch (MavenFilteringException e) {
+            return;
+        }
+        fail("Copying directory structure with duplicate filename includefile.txt should have failed with overwrite");
+
+    }
+
+    public void testExcludeOneFile()
+        throws Exception
+    {
+
+        String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
+
+        Resource resource = new Resource();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
         resource.addExclude( "*.gif" );
         resource.addExclude( "**/excludedir/**" );
 
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -557,18 +562,11 @@ public class DefaultMavenResourcesFilteringTest
     public void testTargetAbsolutePath()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
@@ -586,7 +584,7 @@ public class DefaultMavenResourcesFilteringTest
         {
             FileUtils.cleanDirectory( targetPathFile );
         }
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -603,24 +601,17 @@ public class DefaultMavenResourcesFilteringTest
     public void testTargetPath()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-resources-filtering";
 
         Resource resource = new Resource();
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( resource );
         resource.setDirectory( unitFilesDir );
         resource.setFiltering( true );
         resource.addInclude( "includ*" );
         resource.setTargetPath( "testTargetPath" );
-        List<String> filtersFile = new ArrayList<String>();
+        List<String> filtersFile = new ArrayList<>();
         filtersFile.add( getBasedir()
             + "/src/test/units-files/maven-resources-filtering/empty-maven-resources-filtering.txt" );
 
@@ -640,15 +631,8 @@ public class DefaultMavenResourcesFilteringTest
     public void testEmptyDirectories()
         throws Exception
     {
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
 
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
-
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( new Resource()
         {
             {
@@ -699,21 +683,11 @@ public class DefaultMavenResourcesFilteringTest
     public void testShouldReturnGitIgnoreFiles()
         throws Exception
     {
-        File sourceDirectory = new File( getBasedir(), "/target/sourceTestGitIgnoreFile" );
-        FileUtils.forceDelete( sourceDirectory );
-
-        createTestDataStructure( sourceDirectory );
+        createTestDataStructure();
 
         File outputDirectory = new File( getBasedir(), "/target/testGitIgnoreFile" );
-        File baseDir = new File( "c:\\foo\\bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
 
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
-
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( new Resource()
         {
             {
@@ -729,11 +703,11 @@ public class DefaultMavenResourcesFilteringTest
         mavenResourcesExecution.setAddDefaultExcludes( false );
         mavenResourcesFiltering.filterResources( mavenResourcesExecution );
 
-        File[] childs = outputDirectory.listFiles();
-        assertNotNull( childs );
-        assertEquals( 3, childs.length );
+        File[] children = outputDirectory.listFiles();
+        assertNotNull( children );
+        assertEquals( 3, children.length );
 
-        for ( File file : childs )
+        for ( File file : children )
         {
             if ( file.getName().endsWith( "dir1" ) || file.getName().endsWith( "empty-directory" )
                 || file.getName().endsWith( "empty-directory-child" ) )
@@ -760,30 +734,33 @@ public class DefaultMavenResourcesFilteringTest
             }
             else
             {
-                fail( "unknow child file found " + file.getName() );
+                fail( "unknown child file found " + file.getName() );
             }
         }
     }
 
     /**
-     * The folder and file structure will be created instead of letting this resource plugin copying the structure which
-     * will not work.
-     * 
-     * @param sourceDirectory The source folder where the structure will be created.
-     * @throws IOException
+     * The folder and file structure will be created instead of letting this resource plugin
+     * copy the structure which does not work.
      */
-    private void createTestDataStructure( File sourceDirectory )
+    private static void createTestDataStructure()
         throws IOException
     {
+        File sourceDirectory = new File( getBasedir(), "/target/sourceTestGitIgnoreFile" );
+        if ( sourceDirectory.exists() )
+        {
+            FileUtils.forceDelete( sourceDirectory );
+        }
+
         File dir1 = new File( sourceDirectory, "dir1" );
 
         dir1.mkdirs();
-        FileUtils.fileWrite( new File( dir1, "foo.txt" ), "UTF-8", "This is a Test File" );
+        FileUtils.write( new File( dir1, "foo.txt" ), "This is a Test File", "UTF-8" );
 
         File emptyDirectory = new File( sourceDirectory, "empty-directory" );
         emptyDirectory.mkdirs();
 
-        FileUtils.fileWrite( new File( emptyDirectory, ".gitignore" ), "UTF-8", "# .gitignore file" );
+        FileUtils.write( new File( emptyDirectory, ".gitignore" ), "# .gitignore file", "UTF-8" );
 
         File emptyDirectoryChild = new File( sourceDirectory, "empty-directory-child" );
         emptyDirectory.mkdirs();
@@ -791,7 +768,7 @@ public class DefaultMavenResourcesFilteringTest
         File emptyDirectoryChildEmptyChild = new File( emptyDirectoryChild, "empty-child" );
         emptyDirectoryChildEmptyChild.mkdirs();
 
-        FileUtils.fileWrite( new File( emptyDirectoryChildEmptyChild, ".gitignore" ), "UTF-8", "# .gitignore file" );
+        FileUtils.write( new File( emptyDirectoryChildEmptyChild, ".gitignore" ), "# .gitignore file", "UTF-8" );
     }
 
     /**
@@ -801,18 +778,13 @@ public class DefaultMavenResourcesFilteringTest
     public void testMSHARED81()
         throws Exception
     {
-        StubMavenProject mavenProject = new StubMavenProject( new File( "/foo/bar" ) );
-
-        mavenProject.setVersion( "1.0" );
-
         mavenProject.addProperty( "escaped", "this is escaped" );
         mavenProject.addProperty( "escaped.at", "this is escaped.at" );
         mavenProject.addProperty( "foo", "this is foo" );
         mavenProject.addProperty( "bar", "this is bar" );
 
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( new Resource()
         {
             {
@@ -857,25 +829,58 @@ public class DefaultMavenResourcesFilteringTest
     }
 
     /**
+     * unit test for MRESOURCES-230 : https://issues.apache.org/jira/browse/MRESOURCES-230
+     */
+//    public void testCorrectlyEscapesEscapeString()
+//        throws Exception
+//    {
+//        mavenProject.addProperty( "a", "DONE_A" );
+//
+////
+//        List<Resource> resources = new ArrayList<Resource>();
+//        resources.add( new Resource()
+//        {
+//
+//            {
+//                setDirectory( getBasedir() + "/src/test/units-files/MRESOURCES-230" );
+//                setFiltering( true );
+//            }
+//
+//        } );
+//        resources.get( 0 ).addExclude( "expected.txt" );
+//
+//        File output = new File( outputDirectory, "MRESOURCES-230" );
+//        MavenResourcesExecution mavenResourcesExecution =
+//            new MavenResourcesExecution( resources, output, mavenProject, "UTF-8", Collections.<String>emptyList(),
+//                                         Collections.<String>emptyList(), new StubMavenSession() );
+//        mavenResourcesExecution.setIncludeEmptyDirs( true );
+//        mavenResourcesExecution.setEscapeString( "\\" );
+//
+//        mavenResourcesFiltering.filterResources( mavenResourcesExecution );
+//
+//        final String filtered = FileUtils.fileRead( new File( output, "resource.txt" ), "UTF-8" );
+//        final String expected =
+//            FileUtils.fileRead( new File( getBasedir() + "/src/test/units-files/MRESOURCES-230/expected.txt" ) );
+//
+//        assertEquals( expected, filtered );
+//    }
+
+    /**
      * unit test for edge cases : https://issues.apache.org/jira/browse/MSHARED-228
      */
     @SuppressWarnings( "serial" )
     public void testEdgeCases()
         throws Exception
     {
-        StubMavenProject mavenProject = new StubMavenProject( new File( "/foo/bar" ) );
-
-        mavenProject.setVersion( "1.0" );
-
         mavenProject.addProperty( "escaped", "this is escaped" );
         mavenProject.addProperty( "escaped.at", "this is escaped.at" );
         mavenProject.addProperty( "foo", "this is foo" );
         mavenProject.addProperty( "bar", "this is bar" );
         mavenProject.addProperty( "domain", "this.is.domain.com" );
+        mavenProject.addProperty( "com.xxxxxxx.xxxx.root.build.environment.CLOUD_AZURE_AKS_KUBERNETES_NODE_LABEL_AGENTPOOL_VALUE_PRODUCTION_XXXXXXXXXXX_NODE_IMPL_PRODUCT_SEGMENT_PROCESSOR", "longpropvalue" );
 
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
 
-        List<Resource> resources = new ArrayList<Resource>();
+        List<Resource> resources = new ArrayList<>();
         resources.add( new Resource()
         {
             {
@@ -924,14 +929,6 @@ public class DefaultMavenResourcesFilteringTest
         throws Exception
     {
 
-        File baseDir = new File( "/foo/bar" );
-        StubMavenProject mavenProject = new StubMavenProject( baseDir );
-        mavenProject.setVersion( "1.0" );
-        mavenProject.setGroupId( "org.apache" );
-        mavenProject.setName( "test project" );
-
-        MavenResourcesFiltering mavenResourcesFiltering = lookup( MavenResourcesFiltering.class );
-
         String unitFilesDir = getBasedir() + "/src/test/units-files/maven-filename-filtering";
 
         Resource resource = new Resource();
@@ -954,4 +951,59 @@ public class DefaultMavenResourcesFilteringTest
         assertEquals( "1.0.txt", files[0].getName() );
     }
 
+    /**
+     * MRESOURCES-171: Use correct encoding when filtering properties-files
+     */
+    public void testFilterPropertiesFiles()
+        throws Exception
+    {
+
+        String unitFilesDir = getBasedir() + "/src/test/units-files/MRESOURCES-171";
+
+        Resource resource = new Resource();
+        resource.setDirectory( unitFilesDir );
+        resource.setFiltering( true );
+        resource.setTargetPath( "testFilterPropertiesFiles" );
+
+        MavenResourcesExecution mavenResourcesExecution =
+            new MavenResourcesExecution( Collections.singletonList( resource ), outputDirectory, mavenProject, "UTF-8",
+                                         Collections.<String> emptyList(), Collections.<String> emptyList(),
+                                         new StubMavenSession() );
+        mavenResourcesExecution.setPropertiesEncoding( "ISO-8859-1" );
+        mavenResourcesFiltering.filterResources( mavenResourcesExecution );
+
+        File targetPathFile = new File( outputDirectory, "testFilterPropertiesFiles" );
+        assertTrue( FileUtils.contentEquals( new File( unitFilesDir, "test.properties" ),
+                                             new File( targetPathFile, "test.properties" ) ) );
+        assertTrue( FileUtils.contentEquals( new File( unitFilesDir, "test.txt" ),
+                                             new File( targetPathFile, "test.txt" ) ) );
+    }
+
+    public void testGetEncoding()
+    {
+        File propertiesFile = new File( "file.properties" );
+        File regularFile = new File( "file.xml" );
+
+        // Properties files
+        assertEquals( null, DefaultMavenResourcesFiltering.getEncoding( propertiesFile, null, null ) );
+        assertEquals( "UTF-8", DefaultMavenResourcesFiltering.getEncoding( propertiesFile, "UTF-8", null ) );
+        assertEquals( "ISO-8859-1", DefaultMavenResourcesFiltering.getEncoding( propertiesFile, "UTF-8", "ISO-8859-1" ) );
+        // Regular files
+        assertEquals( null, DefaultMavenResourcesFiltering.getEncoding( regularFile, null, null ) );
+        assertEquals( "UTF-8", DefaultMavenResourcesFiltering.getEncoding( regularFile, "UTF-8", null ) );
+        assertEquals( "UTF-8", DefaultMavenResourcesFiltering.getEncoding( regularFile, "UTF-8", "ISO-8859-1" ) );
+    }
+
+    public void testIsPropertiesFile()
+    {
+        // Properties files
+        assertTrue( DefaultMavenResourcesFiltering.isPropertiesFile( new File( "file.properties" ) ) );
+        assertTrue( DefaultMavenResourcesFiltering.isPropertiesFile( new File( "some/parent/path",
+                                                                               "file.properties" ) ) );
+        // Regular files
+        assertFalse( DefaultMavenResourcesFiltering.isPropertiesFile( new File( "file" ) ) );
+        assertFalse( DefaultMavenResourcesFiltering.isPropertiesFile( new File( "some/parent/path", "file" ) ) );
+        assertFalse( DefaultMavenResourcesFiltering.isPropertiesFile( new File( "file.xml" ) ) );
+        assertFalse( DefaultMavenResourcesFiltering.isPropertiesFile( new File( "some/parent/path", "file.xml" ) ) );
+    }
 }

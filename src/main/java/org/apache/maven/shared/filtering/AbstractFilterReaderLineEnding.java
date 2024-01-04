@@ -26,7 +26,7 @@ import java.util.LinkedHashSet;
 import org.codehaus.plexus.interpolation.multi.DelimiterSpecification;
 
 /**
- * @author Karl Heinz Marbaise <khmarbaise@apache.org>
+ * @author Karl Heinz Marbaise <a href="mailto:khmarbaise@apache.org">khmarbaise@apache.org</a>
  */
 public abstract class AbstractFilterReaderLineEnding
     extends FilterReader
@@ -44,12 +44,14 @@ public abstract class AbstractFilterReaderLineEnding
      */
     private boolean preserveEscapeString = false;
 
-    protected LinkedHashSet<DelimiterSpecification> delimiters = new LinkedHashSet<DelimiterSpecification>();
+    protected LinkedHashSet<DelimiterSpecification> delimiters = new LinkedHashSet<>();
 
     /**
      * must always be bigger than escape string plus delimiters, but doesn't need to be exact
      */
-    protected int markLength = 128;
+    // CHECKSTYLE_OFF: MagicNumber
+    protected int markLength = 255;
+    // CHECKSTYLE_ON: MagicNumber
 
     protected AbstractFilterReaderLineEnding( Reader in )
     {
@@ -73,7 +75,7 @@ public abstract class AbstractFilterReaderLineEnding
         if ( escapeString != null && escapeString.length() >= 1 )
         {
             this.escapeString = escapeString;
-            this.useEscape = escapeString != null && escapeString.length() >= 1;
+            this.useEscape = true;
             calculateMarkLength();
         }
     }
@@ -96,13 +98,13 @@ public abstract class AbstractFilterReaderLineEnding
 
     protected void calculateMarkLength()
     {
-        markLength = 128;
+        // CHECKSTYLE_OFF: MagicNumber
+        markLength = 255;
+        // CHECKSTYLE_ON: MagicNumber
 
         if ( escapeString != null )
         {
-
             markLength += escapeString.length();
-
         }
         for ( DelimiterSpecification spec : delimiters )
         {
